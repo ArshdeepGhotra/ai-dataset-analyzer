@@ -12,6 +12,7 @@ from modules.preprocessing import (
 )
 
 from modules.visualizer import render_visualizations
+from modules.ml_recommender import render_ml_recommendations
 
 
 st.set_page_config(
@@ -319,12 +320,13 @@ if uploaded_file is not None:
             )
 
         # ---------------- MAIN TABS ----------------
-        tab1, tab2, tab3, tab4 = st.tabs(
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(
             [
                 "📄 Overview",
                 "🔎 Data Quality",
                 "🧹 Preprocessing",
-                "📈 Visualizations"
+                "📈 Visualizations",
+                "Ml Recommendations"
             ]
         )
 
@@ -835,6 +837,12 @@ if uploaded_file is not None:
                 )
 
                 render_visualizations(cleaned_df)
+                
+                
+        # ---------------- TAB 5: ML RECOMMENDATIONS ----------------
+        with tab5:
+
+                render_ml_recommendations(df)
 
     except Exception as e:
         st.error(
