@@ -1,5 +1,16 @@
 import streamlit as st
 import pandas as pd
+import hashlib
+
+from modules.database import (
+    init_db,
+    create_user,
+    login_user,
+    save_dataset_summary,
+    get_dataset_history,
+    clear_dataset_history,
+    delete_dataset_history_record,
+)
 
 from modules.loader import load_dataset
 from modules.dataset_analyzer import get_basic_info
@@ -193,6 +204,121 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# ---------------- DATABASE SETUP ----------------
+init_db()
+
+
+# ---------------- SESSION STATE ----------------
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+
+# ---------------- AUTH PAGE ----------------
+def render_auth_page():
+    st.markdown(
+        """
+        <div class="hero-box">
+            <h1 class="main-title">📊 AI Dataset Analyzer</h1>
+            <p class="subtitle">
+                Login or create an account to upload datasets, analyze data,
+                and save your dataset history.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    login_tab, signup_tab = st.tabs(["Login", "Create Account"])
+
+    with login_tab:
+        st.subheader("Login")
+
+        email = st.text_input(
+            "Email",
+            key="login_email"
+        )
+
+        password = st.text_input(
+            "Password",
+            type="password",
+            key="login_password"
+        )
+
+        if st.button("Login"):
+            user = login_user(email, password)
+
+            if user:
+                st.session_state.logged_in = True
+                st.session_state.user = user
+                st.success("Login successful.")
+                st.rerun()
+            else:
+                st.error("Invalid email or password.")
+
+    with signup_tab:
+        st.subheader("Create Account")
+
+        name = st.text_input(
+            "Full Name",
+            key="signup_name"
+        )
+
+        email = st.text_input(
+            "Email",
+            key="signup_email"
+        )
+
+        password = st.text_input(
+            "Password",
+            type="password",
+            key="signup_password"
+        )
+
+        confirm_password = st.text_input(
+            "Confirm Password",
+            type="password",
+            key="signup_confirm_password"
+        )
+
+        if st.button("Create Account"):
+            if not name or not email or not password or not confirm_password:
+                st.error("Please fill in all fields.")
+
+            elif password != confirm_password:
+                st.error("Passwords do not match.")
+
+            elif len(password) < 6:
+                st.error("Password must be at least 6 characters.")
+
+            else:
+                success, message = create_user(
+                    name=name,
+                    email=email,
+                    password=password
+                )
+
+                if success:
+                    user = login_user(email, password)
+
+                    if user:
+                        st.session_state.logged_in = True
+                        st.session_state.user = user
+                        st.success("Account created and logged in successfully.")
+                        st.rerun()
+
+                    else:
+                        st.success(message)
+                        st.info("Account created. Please login.")
+
+                else:
+                    st.error(message)
+
+if not st.session_state.logged_in:
+    render_auth_page()
+    st.stop()
 
 # ---------------- HELPER FUNCTION ----------------
 def get_dynamic_table_height(
@@ -236,6 +362,23 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# ---------------- USER HEADER ----------------
+user = st.session_state.user
+
+user_col, logout_col = st.columns([4, 1])
+
+with user_col:
+    st.success(
+        f"Logged in as {user['name']} ({user['email']})"
+    )
+
+with logout_col:
+    if st.button("Logout"):
+        st.session_state.logged_in = False
+        st.session_state.user = None
+        st.session_state.last_saved_file_signature = None
+        st.rerun()
+
 
 # ---------------- FILE UPLOADER ----------------
 uploaded_file = st.file_uploader(
@@ -275,10 +418,45 @@ if uploaded_file is not None:
                 ).columns
             )
         )
+        
+        # ---------------- AUTO SAVE DATASET SUMMARY ----------------
+        file_name = uploaded_file.name
+        file_type = uploaded_file.name.split(".")[-1].upper()
+
+        file_bytes = uploaded_file.getvalue()
+        file_size_kb = round(len(file_bytes) / 1024, 2)
+        file_signature = hashlib.sha256(file_bytes).hexdigest()
+
+        if "last_saved_file_signature" not in st.session_state:
+            st.session_state.last_saved_file_signature = None
+
+        if st.session_state.last_saved_file_signature != file_signature:
+            success, message = save_dataset_summary(
+                user_id=st.session_state.user["id"],
+                file_name=file_name,
+                file_type=file_type,
+                file_size_kb=file_size_kb,
+                file_signature=file_signature,
+                total_rows=int(df.shape[0]),
+                total_columns=int(df.shape[1]),
+                missing_values=total_missing,
+                duplicate_rows=total_duplicates,
+                numeric_columns=numeric_cols,
+                categorical_columns=text_cols,
+            )
+
+            st.session_state.last_saved_file_signature = file_signature
+
+            if success:
+                st.success(message)
+            else:
+                st.info(message)
 
         # Keep a cleaned version available for preprocessing
         # and visualization.
         cleaned_df = df.copy()
+        
+        
 
         # ---------------- TOP METRICS ----------------
         col1, col2, col3, col4, col5, col6 = st.columns(6)
@@ -853,3 +1031,73 @@ else:
     st.info(
         "Please upload a CSV or Excel file to begin."
     )
+    st.subheader("Saved Dataset History")
+
+history_df = get_dataset_history(
+    st.session_state.user["id"]
+)
+
+if history_df.empty:
+    st.info("No dataset history saved yet.")
+
+else:
+    stat1, stat2, stat3, stat4 = st.columns(4)
+
+    with stat1:
+        st.metric(
+            "Total Uploads",
+            int(len(history_df))
+        )
+
+    with stat2:
+        st.metric(
+            "Rows Analyzed",
+            int(history_df["total_rows"].sum())
+        )
+
+    with stat3:
+        st.metric(
+            "Missing Values Found",
+            int(history_df["missing_values"].sum())
+        )
+
+    with stat4:
+        st.metric(
+            "Duplicate Rows Found",
+            int(history_df["duplicate_rows"].sum())
+        )
+
+    st.dataframe(
+        history_df,
+        use_container_width=True
+    )
+
+    delete_col, clear_col = st.columns(2)
+
+    with delete_col:
+        record_ids = history_df["id"].tolist()
+
+        selected_record_id = st.selectbox(
+            "Select history record ID to delete:",
+            record_ids
+        )
+
+        if st.button("Delete Selected Record"):
+            delete_dataset_history_record(
+                user_id=st.session_state.user["id"],
+                record_id=int(selected_record_id)
+            )
+
+            st.success("Selected history record deleted.")
+            st.rerun()
+
+    with clear_col:
+        st.write("Clear all saved history for your account.")
+
+        if st.button("Clear My Dataset History"):
+            clear_dataset_history(
+                st.session_state.user["id"]
+            )
+
+            st.success("Your dataset history was cleared.")
+            st.rerun()
