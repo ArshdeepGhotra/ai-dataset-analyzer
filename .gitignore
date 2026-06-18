@@ -1,7 +1,21 @@
-.venv/
+# Python cache
 __pycache__/
 *.pyc
-.env
-data/raw/*
-data/processed/*
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+
+# Streamlit
+.streamlit/
+
+# Mac files
 .DS_Store
+
+# Database files
+database/*.db
+
+# Temporary files
+*.tmp
+*.log
