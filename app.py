@@ -2,14 +2,13 @@ import streamlit as st
 import pandas as pd
 import hashlib
 
+from modules.history_dashboard import render_history_dashboard
+
 from modules.database import (
     init_db,
     create_user,
     login_user,
     save_dataset_summary,
-    get_dataset_history,
-    clear_dataset_history,
-    delete_dataset_history_record,
 )
 
 from modules.loader import load_dataset
@@ -19,7 +18,7 @@ from modules.preprocessing import (
     fill_numeric_missing,
     fill_text_missing,
     drop_missing_rows,
-    get_csv_download
+    get_csv_download,
 )
 
 from modules.visualizer import render_visualizations
@@ -29,7 +28,7 @@ from modules.ml_recommender import render_ml_recommendations
 st.set_page_config(
     page_title="AI Dataset Analyzer",
     page_icon="📊",
-    layout="wide"
+    layout="wide",
 )
 
 
@@ -201,8 +200,9 @@ st.markdown(
     }
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
+
 
 # ---------------- DATABASE SETUP ----------------
 init_db()
@@ -228,7 +228,7 @@ def render_auth_page():
             </p>
         </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     login_tab, signup_tab = st.tabs(["Login", "Create Account"])
@@ -238,13 +238,13 @@ def render_auth_page():
 
         email = st.text_input(
             "Email",
-            key="login_email"
+            key="login_email",
         )
 
         password = st.text_input(
             "Password",
             type="password",
-            key="login_password"
+            key="login_password",
         )
 
         if st.button("Login"):
@@ -263,24 +263,24 @@ def render_auth_page():
 
         name = st.text_input(
             "Full Name",
-            key="signup_name"
+            key="signup_name",
         )
 
         email = st.text_input(
             "Email",
-            key="signup_email"
+            key="signup_email",
         )
 
         password = st.text_input(
             "Password",
             type="password",
-            key="signup_password"
+            key="signup_password",
         )
 
         confirm_password = st.text_input(
             "Confirm Password",
             type="password",
-            key="signup_confirm_password"
+            key="signup_confirm_password",
         )
 
         if st.button("Create Account"):
@@ -297,7 +297,7 @@ def render_auth_page():
                 success, message = create_user(
                     name=name,
                     email=email,
-                    password=password
+                    password=password,
                 )
 
                 if success:
@@ -316,15 +316,17 @@ def render_auth_page():
                 else:
                     st.error(message)
 
+
 if not st.session_state.logged_in:
     render_auth_page()
     st.stop()
+
 
 # ---------------- HELPER FUNCTION ----------------
 def get_dynamic_table_height(
     dataframe,
     max_height=360,
-    min_height=115
+    min_height=115,
 ):
     """
     Adjust table height based on the number of rows.
@@ -356,11 +358,16 @@ st.markdown(
     """
 <div class="hero-box">
 <h1 class="main-title">📊 AI Dataset Analyzer</h1>
-<p class="subtitle">Upload a dataset, analyze its structure, detect missing values, clean the data, compare before-and-after changes, create interactive charts, and download the cleaned file.</p>
+<p class="subtitle">
+Upload a dataset, analyze its structure, detect missing values,
+clean the data, compare before-and-after changes, create interactive
+charts, and download the cleaned file.
+</p>
 </div>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
+
 
 # ---------------- USER HEADER ----------------
 user = st.session_state.user
@@ -377,23 +384,56 @@ with logout_col:
         st.session_state.logged_in = False
         st.session_state.user = None
         st.session_state.last_saved_file_signature = None
+        st.session_state.loaded_history_df = None
+        st.session_state.loaded_history_file_name = None
         st.rerun()
+
+
+# ---------------- SIDEBAR NAVIGATION ----------------
+selected_page = st.sidebar.radio(
+    "Navigation",
+    [
+        "Dashboard",
+        "Dataset History",
+    ],
+)
+
+if selected_page == "Dataset History":
+    render_history_dashboard(st.session_state.user["id"])
+    st.stop()
 
 
 # ---------------- FILE UPLOADER ----------------
 uploaded_file = st.file_uploader(
     "Upload your dataset",
-    type=["csv", "xlsx", "xls"]
+    type=["csv", "xlsx", "xls"],
 )
 
+history_df_loaded = st.session_state.get("loaded_history_df")
+history_file_name = st.session_state.get("loaded_history_file_name")
 
-if uploaded_file is not None:
+
+if uploaded_file is not None or history_df_loaded is not None:
     try:
-        # Load and analyze the uploaded dataset
-        df = load_dataset(uploaded_file)
-        info = get_basic_info(df)
+        if uploaded_file is not None:
+            df = load_dataset(uploaded_file)
+            active_file_name = uploaded_file.name
+            is_loaded_from_history = False
 
-        st.success("Dataset uploaded successfully!")
+            st.success("Dataset uploaded successfully.")
+
+            # If user uploads a fresh file, stop using old loaded history data.
+            st.session_state.loaded_history_df = None
+            st.session_state.loaded_history_file_name = None
+
+        else:
+            df = history_df_loaded.copy()
+            active_file_name = history_file_name or "saved_dataset.csv"
+            is_loaded_from_history = True
+
+            st.success(f"Saved dataset loaded: {active_file_name}")
+
+        info = get_basic_info(df)
 
         total_missing = int(
             df.isnull().sum().sum()
@@ -418,45 +458,53 @@ if uploaded_file is not None:
                 ).columns
             )
         )
-        
+
         # ---------------- AUTO SAVE DATASET SUMMARY ----------------
-        file_name = uploaded_file.name
-        file_type = uploaded_file.name.split(".")[-1].upper()
+        file_name = active_file_name
+        file_type = active_file_name.split(".")[-1].upper()
 
-        file_bytes = uploaded_file.getvalue()
-        file_size_kb = round(len(file_bytes) / 1024, 2)
-        file_signature = hashlib.sha256(file_bytes).hexdigest()
+        if not is_loaded_from_history:
+            file_bytes = uploaded_file.getvalue()
+            file_size_kb = round(len(file_bytes) / 1024, 2)
+            file_signature = hashlib.sha256(file_bytes).hexdigest()
 
-        if "last_saved_file_signature" not in st.session_state:
-            st.session_state.last_saved_file_signature = None
+            if "last_saved_file_signature" not in st.session_state:
+                st.session_state.last_saved_file_signature = None
 
-        if st.session_state.last_saved_file_signature != file_signature:
-            success, message = save_dataset_summary(
-                user_id=st.session_state.user["id"],
-                file_name=file_name,
-                file_type=file_type,
-                file_size_kb=file_size_kb,
-                file_signature=file_signature,
-                total_rows=int(df.shape[0]),
-                total_columns=int(df.shape[1]),
-                missing_values=total_missing,
-                duplicate_rows=total_duplicates,
-                numeric_columns=numeric_cols,
-                categorical_columns=text_cols,
-            )
+            if st.session_state.last_saved_file_signature != file_signature:
+                success, message = save_dataset_summary(
+                    user_id=st.session_state.user["id"],
+                    file_name=file_name,
+                    file_type=file_type,
+                    file_size_kb=file_size_kb,
+                    file_signature=file_signature,
+                    total_rows=int(df.shape[0]),
+                    total_columns=int(df.shape[1]),
+                    missing_values=total_missing,
+                    duplicate_rows=total_duplicates,
+                    numeric_columns=numeric_cols,
+                    categorical_columns=text_cols,
+                    dataset_csv=df.to_csv(index=False),
+                )
 
-            st.session_state.last_saved_file_signature = file_signature
+                st.session_state.last_saved_file_signature = file_signature
 
-            if success:
-                st.success(message)
-            else:
-                st.info(message)
+                if success:
+                    st.success(message)
+                else:
+                    st.info(message)
+
+        else:
+            st.info("You are working on a dataset loaded from history.")
+
+            if st.button("Clear Loaded Saved Dataset"):
+                st.session_state.loaded_history_df = None
+                st.session_state.loaded_history_file_name = None
+                st.rerun()
 
         # Keep a cleaned version available for preprocessing
         # and visualization.
         cleaned_df = df.copy()
-        
-        
 
         # ---------------- TOP METRICS ----------------
         col1, col2, col3, col4, col5, col6 = st.columns(6)
@@ -464,37 +512,37 @@ if uploaded_file is not None:
         with col1:
             st.metric(
                 "Rows",
-                int(df.shape[0])
+                int(df.shape[0]),
             )
 
         with col2:
             st.metric(
                 "Columns",
-                int(df.shape[1])
+                int(df.shape[1]),
             )
 
         with col3:
             st.metric(
                 "Missing",
-                total_missing
+                total_missing,
             )
 
         with col4:
             st.metric(
                 "Duplicates",
-                total_duplicates
+                total_duplicates,
             )
 
         with col5:
             st.metric(
                 "Numeric",
-                numeric_cols
+                numeric_cols,
             )
 
         with col6:
             st.metric(
                 "Text",
-                text_cols
+                text_cols,
             )
 
         # ---------------- MAIN TABS ----------------
@@ -504,7 +552,7 @@ if uploaded_file is not None:
                 "🔎 Data Quality",
                 "🧹 Preprocessing",
                 "📈 Visualizations",
-                "Ml Recommendations"
+                "ML Recommendations",
             ]
         )
 
@@ -523,8 +571,8 @@ if uploaded_file is not None:
                         use_container_width=True,
                         height=get_dynamic_table_height(
                             preview_df,
-                            max_height=340
-                        )
+                            max_height=340,
+                        ),
                     )
 
             with right_col:
@@ -539,7 +587,7 @@ if uploaded_file is not None:
                                 "Total Missing Values",
                                 "Duplicate Rows",
                                 "Numeric Columns",
-                                "Text Columns"
+                                "Text Columns",
                             ],
                             "Value": [
                                 int(df.shape[0]),
@@ -547,8 +595,8 @@ if uploaded_file is not None:
                                 total_missing,
                                 total_duplicates,
                                 numeric_cols,
-                                text_cols
-                            ]
+                                text_cols,
+                            ],
                         }
                     )
 
@@ -557,13 +605,13 @@ if uploaded_file is not None:
                         use_container_width=True,
                         height=get_dynamic_table_height(
                             summary_table,
-                            max_height=300
-                        )
+                            max_height=300,
+                        ),
                     )
 
             with st.expander(
                 "View Column Details",
-                expanded=False
+                expanded=False,
             ):
                 column_info = pd.DataFrame(
                     {
@@ -574,7 +622,7 @@ if uploaded_file is not None:
                         ),
                         "Unique Values": (
                             df.nunique(dropna=True).values
-                        )
+                        ),
                     }
                 )
 
@@ -583,8 +631,8 @@ if uploaded_file is not None:
                     use_container_width=True,
                     height=get_dynamic_table_height(
                         column_info,
-                        max_height=380
-                    )
+                        max_height=380,
+                    ),
                 )
 
         # ---------------- TAB 2: DATA QUALITY ----------------
@@ -611,7 +659,7 @@ if uploaded_file is not None:
                                 "Column Name": df.columns,
                                 "Missing Values": (
                                     df.isnull().sum().values
-                                )
+                                ),
                             }
                         )
 
@@ -624,8 +672,8 @@ if uploaded_file is not None:
                             use_container_width=True,
                             height=get_dynamic_table_height(
                                 missing_info,
-                                max_height=260
-                            )
+                                max_height=260,
+                            ),
                         )
 
             with quality_col2:
@@ -652,18 +700,18 @@ if uploaded_file is not None:
                             use_container_width=True,
                             height=get_dynamic_table_height(
                                 duplicate_rows,
-                                max_height=300
-                            )
+                                max_height=300,
+                            ),
                         )
 
             with st.expander(
                 "View Full Dataset",
-                expanded=False
+                expanded=False,
             ):
                 st.dataframe(
                     df,
                     use_container_width=True,
-                    height=430
+                    height=430,
                 )
 
         # ---------------- TAB 3: PREPROCESSING ----------------
@@ -680,9 +728,9 @@ if uploaded_file is not None:
                         "Fill Numeric Missing Values with Median",
                         "Fill Numeric Missing Values with Zero",
                         "Fill Text Missing Values with Unknown",
-                        "Drop Rows with Missing Values"
+                        "Drop Rows with Missing Values",
                     ],
-                    key="preprocessing_operation"
+                    key="preprocessing_operation",
                 )
 
                 original_missing = int(
@@ -709,7 +757,7 @@ if uploaded_file is not None:
                 ):
                     cleaned_df = fill_numeric_missing(
                         cleaned_df,
-                        method="mean"
+                        method="mean",
                     )
 
                     st.success(
@@ -721,7 +769,7 @@ if uploaded_file is not None:
                 ):
                     cleaned_df = fill_numeric_missing(
                         cleaned_df,
-                        method="median"
+                        method="median",
                     )
 
                     st.success(
@@ -733,7 +781,7 @@ if uploaded_file is not None:
                 ):
                     cleaned_df = fill_numeric_missing(
                         cleaned_df,
-                        method="zero"
+                        method="zero",
                     )
 
                     st.success(
@@ -745,7 +793,7 @@ if uploaded_file is not None:
                 ):
                     cleaned_df = fill_text_missing(
                         cleaned_df,
-                        value="Unknown"
+                        value="Unknown",
                     )
 
                     st.success(
@@ -786,20 +834,20 @@ if uploaded_file is not None:
                                     "Rows",
                                     "Columns",
                                     "Total Missing Values",
-                                    "Duplicate Rows"
+                                    "Duplicate Rows",
                                 ],
                                 "Before": [
                                     int(original_shape[0]),
                                     int(original_shape[1]),
                                     original_missing,
-                                    original_duplicates
+                                    original_duplicates,
                                 ],
                                 "After": [
                                     int(cleaned_shape[0]),
                                     int(cleaned_shape[1]),
                                     cleaned_missing,
-                                    cleaned_duplicates
-                                ]
+                                    cleaned_duplicates,
+                                ],
                             }
                         )
 
@@ -808,8 +856,8 @@ if uploaded_file is not None:
                             use_container_width=True,
                             height=get_dynamic_table_height(
                                 comparison_df,
-                                max_height=260
-                            )
+                                max_height=260,
+                            ),
                         )
 
                 with report_col:
@@ -839,14 +887,14 @@ if uploaded_file is not None:
                                     "Operation Applied",
                                     "Rows Removed",
                                     "Missing Values Fixed",
-                                    "Duplicate Rows Removed"
+                                    "Duplicate Rows Removed",
                                 ],
                                 "Result": [
                                     preprocessing_option,
                                     rows_removed,
                                     missing_values_fixed,
-                                    duplicate_rows_removed
-                                ]
+                                    duplicate_rows_removed,
+                                ],
                             }
                         )
 
@@ -855,19 +903,19 @@ if uploaded_file is not None:
                             use_container_width=True,
                             height=get_dynamic_table_height(
                                 report_data,
-                                max_height=260
-                            )
+                                max_height=260,
+                            ),
                         )
 
                 with st.expander(
                     "Rows Affected by Preprocessing",
-                    expanded=True
+                    expanded=True,
                 ):
                     filling_operations = [
                         "Fill Numeric Missing Values with Mean",
                         "Fill Numeric Missing Values with Median",
                         "Fill Numeric Missing Values with Zero",
-                        "Fill Text Missing Values with Unknown"
+                        "Fill Text Missing Values with Unknown",
                     ]
 
                     if preprocessing_option in filling_operations:
@@ -892,8 +940,8 @@ if uploaded_file is not None:
                                     use_container_width=True,
                                     height=get_dynamic_table_height(
                                         affected_rows,
-                                        max_height=320
-                                    )
+                                        max_height=320,
+                                    ),
                                 )
 
                             with after_col:
@@ -908,8 +956,8 @@ if uploaded_file is not None:
                                     use_container_width=True,
                                     height=get_dynamic_table_height(
                                         after_rows,
-                                        max_height=320
-                                    )
+                                        max_height=320,
+                                    ),
                                 )
 
                     elif preprocessing_option == (
@@ -934,8 +982,8 @@ if uploaded_file is not None:
                                 use_container_width=True,
                                 height=get_dynamic_table_height(
                                     affected_rows,
-                                    max_height=320
-                                )
+                                    max_height=320,
+                                ),
                             )
 
                     elif preprocessing_option == (
@@ -960,8 +1008,8 @@ if uploaded_file is not None:
                                 use_container_width=True,
                                 height=get_dynamic_table_height(
                                     affected_rows,
-                                    max_height=320
-                                )
+                                    max_height=320,
+                                ),
                             )
 
                 final_col, download_col = st.columns([3, 1])
@@ -979,8 +1027,8 @@ if uploaded_file is not None:
                             use_container_width=True,
                             height=get_dynamic_table_height(
                                 final_preview,
-                                max_height=340
-                            )
+                                max_height=340,
+                            ),
                         )
 
                 with download_col:
@@ -996,7 +1044,7 @@ if uploaded_file is not None:
                             data=csv_data,
                             file_name="cleaned_dataset.csv",
                             mime="text/csv",
-                            use_container_width=True
+                            use_container_width=True,
                         )
 
             else:
@@ -1015,12 +1063,10 @@ if uploaded_file is not None:
                 )
 
                 render_visualizations(cleaned_df)
-                
-                
+
         # ---------------- TAB 5: ML RECOMMENDATIONS ----------------
         with tab5:
-
-                render_ml_recommendations(df)
+            render_ml_recommendations(df)
 
     except Exception as e:
         st.error(
@@ -1031,73 +1077,3 @@ else:
     st.info(
         "Please upload a CSV or Excel file to begin."
     )
-    st.subheader("Saved Dataset History")
-
-history_df = get_dataset_history(
-    st.session_state.user["id"]
-)
-
-if history_df.empty:
-    st.info("No dataset history saved yet.")
-
-else:
-    stat1, stat2, stat3, stat4 = st.columns(4)
-
-    with stat1:
-        st.metric(
-            "Total Uploads",
-            int(len(history_df))
-        )
-
-    with stat2:
-        st.metric(
-            "Rows Analyzed",
-            int(history_df["total_rows"].sum())
-        )
-
-    with stat3:
-        st.metric(
-            "Missing Values Found",
-            int(history_df["missing_values"].sum())
-        )
-
-    with stat4:
-        st.metric(
-            "Duplicate Rows Found",
-            int(history_df["duplicate_rows"].sum())
-        )
-
-    st.dataframe(
-        history_df,
-        use_container_width=True
-    )
-
-    delete_col, clear_col = st.columns(2)
-
-    with delete_col:
-        record_ids = history_df["id"].tolist()
-
-        selected_record_id = st.selectbox(
-            "Select history record ID to delete:",
-            record_ids
-        )
-
-        if st.button("Delete Selected Record"):
-            delete_dataset_history_record(
-                user_id=st.session_state.user["id"],
-                record_id=int(selected_record_id)
-            )
-
-            st.success("Selected history record deleted.")
-            st.rerun()
-
-    with clear_col:
-        st.write("Clear all saved history for your account.")
-
-        if st.button("Clear My Dataset History"):
-            clear_dataset_history(
-                st.session_state.user["id"]
-            )
-
-            st.success("Your dataset history was cleared.")
-            st.rerun()
