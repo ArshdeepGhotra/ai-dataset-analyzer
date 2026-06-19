@@ -1,21 +1,10 @@
-# Python cache
+.venv/
 __pycache__/
 *.pyc
-*.pyo
-
-# Virtual environments
-.venv/
-venv/
-
-# Streamlit
-.streamlit/
-
-# Mac files
 .DS_Store
 
-# Database files
 database/*.db
+database/*.sqlite
+database/*.sqlite3
 
-# Temporary files
-*.tmp
-*.log
+.streamlit/secrets.toml
