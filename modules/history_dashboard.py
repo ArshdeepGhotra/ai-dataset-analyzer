@@ -57,7 +57,7 @@ def render_history_dashboard(user_id: int) -> None:
 
     st.dataframe(
         display_df,
-        use_container_width=True,
+        width="stretch",
         hide_index=True
     )
 
@@ -68,7 +68,7 @@ def render_history_dashboard(user_id: int) -> None:
         data=csv_data,
         file_name="dataset_history.csv",
         mime="text/csv",
-        use_container_width=True
+        width="stretch"
     )
 
     st.divider()

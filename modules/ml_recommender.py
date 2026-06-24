@@ -185,7 +185,7 @@ def _create_bar_chart(results_df: pd.DataFrame, task_type: str) -> None:
         textposition="outside",
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 def _create_scatter_chart(results_df: pd.DataFrame, task_type: str) -> None:
@@ -211,7 +211,7 @@ def _create_scatter_chart(results_df: pd.DataFrame, task_type: str) -> None:
         textposition="top center",
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 def _create_heatmap(results_df: pd.DataFrame, task_type: str) -> None:
@@ -228,7 +228,7 @@ def _create_heatmap(results_df: pd.DataFrame, task_type: str) -> None:
         title="Model Performance Heatmap",
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 def render_ml_recommendations(df: pd.DataFrame) -> None:
@@ -316,7 +316,7 @@ def render_ml_recommendations(df: pd.DataFrame) -> None:
             return
 
     st.markdown("### Recommended Target Columns")
-    st.dataframe(target_recommendations, use_container_width=True)
+    st.dataframe(target_recommendations, width="stretch")
 
     target_column = st.selectbox(
         "Select target column",
@@ -511,7 +511,7 @@ def render_ml_recommendations(df: pd.DataFrame) -> None:
     for column in numeric_result_columns:
         results_df[column] = results_df[column].round(4)
 
-    st.dataframe(results_df, use_container_width=True)
+    st.dataframe(results_df, width="stretch")
 
     st.markdown("### Best Model Recommendation")
 

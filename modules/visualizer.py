@@ -211,7 +211,7 @@ def display_histogram(
 
     st.plotly_chart(
         figure,
-        use_container_width=True,
+        width="stretch",
         key="histogram_figure"
     )
 
@@ -267,7 +267,7 @@ def display_bar_chart(
 
     st.plotly_chart(
         figure,
-        use_container_width=True,
+        width="stretch",
         key="bar_figure"
     )
 
@@ -318,7 +318,7 @@ def display_pie_chart(
 
     st.plotly_chart(
         figure,
-        use_container_width=True,
+        width="stretch",
         key="pie_figure"
     )
 
@@ -388,7 +388,7 @@ def display_box_plot(
 
     st.plotly_chart(
         figure,
-        use_container_width=True,
+        width="stretch",
         key="box_figure"
     )
 
@@ -466,7 +466,7 @@ def display_line_chart(
 
     st.plotly_chart(
         figure,
-        use_container_width=True,
+        width="stretch",
         key="line_figure"
     )
 
@@ -543,7 +543,7 @@ def display_scatter_plot(
 
     st.plotly_chart(
         figure,
-        use_container_width=True,
+        width="stretch",
         key="scatter_figure"
     )
 
@@ -588,6 +588,6 @@ def display_correlation_heatmap(
 
     st.plotly_chart(
         figure,
-        use_container_width=True,
+        width="stretch",
         key="heatmap_figure"
     )

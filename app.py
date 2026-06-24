@@ -568,7 +568,7 @@ if uploaded_file is not None or history_df_loaded is not None:
 
                     st.dataframe(
                         preview_df,
-                        use_container_width=True,
+                        width="stretch",
                         height=get_dynamic_table_height(
                             preview_df,
                             max_height=340,
@@ -602,7 +602,7 @@ if uploaded_file is not None or history_df_loaded is not None:
 
                     st.dataframe(
                         summary_table,
-                        use_container_width=True,
+                        width="stretch",
                         height=get_dynamic_table_height(
                             summary_table,
                             max_height=300,
@@ -628,7 +628,7 @@ if uploaded_file is not None or history_df_loaded is not None:
 
                 st.dataframe(
                     column_info,
-                    use_container_width=True,
+                    width="stretch",
                     height=get_dynamic_table_height(
                         column_info,
                         max_height=380,
@@ -669,7 +669,7 @@ if uploaded_file is not None or history_df_loaded is not None:
 
                         st.dataframe(
                             missing_info,
-                            use_container_width=True,
+                            width="stretch",
                             height=get_dynamic_table_height(
                                 missing_info,
                                 max_height=260,
@@ -697,7 +697,7 @@ if uploaded_file is not None or history_df_loaded is not None:
 
                         st.dataframe(
                             duplicate_rows,
-                            use_container_width=True,
+                            width="stretch",
                             height=get_dynamic_table_height(
                                 duplicate_rows,
                                 max_height=300,
@@ -710,7 +710,7 @@ if uploaded_file is not None or history_df_loaded is not None:
             ):
                 st.dataframe(
                     df,
-                    use_container_width=True,
+                    width="stretch",
                     height=430,
                 )
 
@@ -853,7 +853,7 @@ if uploaded_file is not None or history_df_loaded is not None:
 
                         st.dataframe(
                             comparison_df,
-                            use_container_width=True,
+                            width="stretch",
                             height=get_dynamic_table_height(
                                 comparison_df,
                                 max_height=260,
@@ -900,7 +900,7 @@ if uploaded_file is not None or history_df_loaded is not None:
 
                         st.dataframe(
                             report_data,
-                            use_container_width=True,
+                            width="stretch",
                             height=get_dynamic_table_height(
                                 report_data,
                                 max_height=260,
@@ -937,7 +937,7 @@ if uploaded_file is not None or history_df_loaded is not None:
 
                                 st.dataframe(
                                     affected_rows,
-                                    use_container_width=True,
+                                    width="stretch",
                                     height=get_dynamic_table_height(
                                         affected_rows,
                                         max_height=320,
@@ -953,7 +953,7 @@ if uploaded_file is not None or history_df_loaded is not None:
 
                                 st.dataframe(
                                     after_rows,
-                                    use_container_width=True,
+                                    width="stretch",
                                     height=get_dynamic_table_height(
                                         after_rows,
                                         max_height=320,
@@ -979,7 +979,7 @@ if uploaded_file is not None or history_df_loaded is not None:
 
                             st.dataframe(
                                 affected_rows,
-                                use_container_width=True,
+                                width="stretch",
                                 height=get_dynamic_table_height(
                                     affected_rows,
                                     max_height=320,
@@ -1005,7 +1005,7 @@ if uploaded_file is not None or history_df_loaded is not None:
 
                             st.dataframe(
                                 affected_rows,
-                                use_container_width=True,
+                                width="stretch",
                                 height=get_dynamic_table_height(
                                     affected_rows,
                                     max_height=320,
@@ -1024,7 +1024,7 @@ if uploaded_file is not None or history_df_loaded is not None:
 
                         st.dataframe(
                             final_preview,
-                            use_container_width=True,
+                            width="stretch",
                             height=get_dynamic_table_height(
                                 final_preview,
                                 max_height=340,
@@ -1044,7 +1044,7 @@ if uploaded_file is not None or history_df_loaded is not None:
                             data=csv_data,
                             file_name="cleaned_dataset.csv",
                             mime="text/csv",
-                            use_container_width=True,
+                            width="stretch",
                         )
 
             else:
