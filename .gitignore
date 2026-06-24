@@ -8,3 +8,4 @@ database/*.sqlite
 database/*.sqlite3
 
 .streamlit/secrets.toml
+ai-dataset-analyzer/
